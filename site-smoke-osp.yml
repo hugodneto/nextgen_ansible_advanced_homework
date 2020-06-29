@@ -1,11 +1,27 @@
-- hosts: workstation
+---
+- name: Run a smoke test on the QA environment for the three-tier application 
+  hosts: workstation
   gather_facts: false
   tasks:
-  - name: OpenStack servers
-  - name: Curl website
 
-  - name: Fail if 'Ansible has done its job' is not in the page content
-    fail:
-    when: "'Ansible has done its job' not in webpage.results[0].content"
-    tags:
-      - osp.smoke
+    - name: Read OpenStack servers
+      os_server_info:
+        cloud: openstack
+        server: 'frontend'
+      register: openstack_info
+
+    - name: Check if all osp instance exist
+      debug: "{{ openstack_info.openstack_servers | length }}"
+      register: osp_instance
+    
+    - name: 'Check page and fail if the words "Ansible has done" are not in the page contents'
+      uri:
+        url: "http://{{ item.public_v4 }}"
+        return_content: yes
+      register: this
+      when: 'item.name == "frontend"'
+      with_items: "{{ openstack_info.openstack_servers }}"
+      failed_when: "'Ansible has done' not in this.content"
+      tags:
+        - osp.smoke
+ ...
